@@ -5,8 +5,8 @@ date: 2014-04-04 15:32:26 +0800
 comments: true
 categories: 技术
 ---
-
-###搭建Ruby发布环境
+---
+- ###搭建Ruby发布环境
 
 1.可以使用`ruby --version`查看本机`Ruby`版本号。我是用的**OS X 10.9.2**系统，自带2.0.0版本的`Ruby`。
 
@@ -26,7 +26,7 @@ rvm rubygems latest
 ```
   参考[Installing Ruby With RVM](http://octopress.org/docs/setup/rvm/)
 
-###安装Octopress
+- ###安装Octopress
 
 1.首先把**Octopress**从**GitHub**上下载下来
 
@@ -42,8 +42,7 @@ gem install bundle
 bundle install
 ```
 	
-在进行`bundle install`时出现`An error occured while installing RedCloth (4.2.9), and Bundler cannot continue.
-	Make sure that gem install RedCloth -v '4.2.9' succeeds before bundling.`错误。
+在进行`bundle install`时出现`An error occured while installing RedCloth (4.2.9), and Bundler cannot continue.Make sure that gem install RedCloth -v '4.2.9' succeeds before bundling.`错误。
 
 最后通过强制重新安装`Ruby`解决了这个问题。
 	
@@ -66,11 +65,13 @@ $ echo "\$greyshade: color;" >> sass/custom/_colors.scss //Substitue 'color' wit
 $ rake "install[greyshade]"
 $ rake generate
 ```
+在这里安装主题是可能会出现**GitHub**链接错误，请参考***[GitHub帮助文档](https://help.github.com/articles/generating-ssh-keys)***设置**SSH Keys**。
 
-###配置Octopress
+- ###配置Octopress
 
 1.进入**Octopress**目录打开`_config.yml`进行修改。
 具体可以参考[Configuring Octopress](http://octopress.org/docs/configuring/)。
+
 2.配置完成之后可以生成静态网页并通过[http://127.0.0.1:4000]()预览
 
 ```
@@ -78,5 +79,11 @@ rake generate
 rake preview
 ```
 	
+3.最后将源码提交到分支下，这样可以在任何电脑上进行编辑并发布博客(将源码git clone到目标电脑上并进入clone的文件夹内即可进行上述相同的操作)。
 
+```
+git add .
+git commit -m 'your message'
+git push origin source
+```
 
