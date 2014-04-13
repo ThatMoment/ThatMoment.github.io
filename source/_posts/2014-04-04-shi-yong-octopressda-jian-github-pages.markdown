@@ -67,7 +67,7 @@ $ rake generate
 ```
 在这里安装主题是可能会出现**GitHub**链接错误，请参考***[GitHub帮助文档](https://help.github.com/articles/generating-ssh-keys)***设置**SSH Keys**。
 
-- ###配置Octopress
+- ###配置Octopress和发布文章
 
 1.进入**Octopress**目录打开`_config.yml`进行修改。
 具体可以参考[Configuring Octopress](http://octopress.org/docs/configuring/)。
@@ -78,8 +78,15 @@ $ rake generate
 rake generate
 rake preview
 ```
+3.新建并发布文章，新建的文章将存储在`source/_posts`目录下面
+
+```
+rake new_post["title"]	//新建文章
+rake generate	//生成文章
+rake deploy	//发布文章
+```
 	
-3.最后将源码提交到分支下，这样可以在任何电脑上进行编辑并发布博客(将源码git clone到目标电脑上并进入clone的文件夹内即可进行上述相同的操作)。
+4.最后将源码提交到分支下，这样可以在任何电脑上进行编辑并发布博客(将源码git clone到目标电脑上并进入clone的文件夹内即可进行上述相同的操作)。
 
 ```
 git add .
