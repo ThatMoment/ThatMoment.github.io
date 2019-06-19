@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head><meta name="generator" content="Hexo 3.8.0">
+    <meta charset="utf-8">
+<title>深入理解Grand Central Dispatch:第一部分 - Moment</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+
+
+    <meta name="description" content="尽管Grand Central Dispatch（简称GCD） 很早就已经使用，但并不是每个人都了解如何充分使用它们。棘手的并发处理和一堆基于C指针的GCD开发文文档，似乎与Objective-C通常表达形式格格不入。本篇教程将分两部分更深一步学习GCD。 第一部分主要是学习什么是GCD，了解GCD的一些基本功能。第二部分我们将学习GCD提供的更为高级的功能。">
+<meta name="keywords" content="GCD,多线程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解Grand Central Dispatch:第一部分">
+<meta property="og:url" content="http://yoursite.com/2019/06/16/深入理解GCD-第一部分/index.html">
+<meta property="og:site_name" content="Moment">
+<meta property="og:description" content="尽管Grand Central Dispatch（简称GCD） 很早就已经使用，但并不是每个人都了解如何充分使用它们。棘手的并发处理和一堆基于C指针的GCD开发文文档，似乎与Objective-C通常表达形式格格不入。本篇教程将分两部分更深一步学习GCD。 第一部分主要是学习什么是GCD，了解GCD的一些基本功能。第二部分我们将学习GCD提供的更为高级的功能。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/images/og_image.png">
+<meta property="og:updated_time" content="2019-06-19T07:52:49.244Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="深入理解Grand Central Dispatch:第一部分">
+<meta name="twitter:description" content="尽管Grand Central Dispatch（简称GCD） 很早就已经使用，但并不是每个人都了解如何充分使用它们。棘手的并发处理和一堆基于C指针的GCD开发文文档，似乎与Objective-C通常表达形式格格不入。本篇教程将分两部分更深一步学习GCD。 第一部分主要是学习什么是GCD，了解GCD的一些基本功能。第二部分我们将学习GCD提供的更为高级的功能。">
+<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.7.2/css/bulma.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu:400,600|Source+Code+Pro">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css">
+
+
+    
+    
+    
+    <style>body>.footer,body>.navbar,body>.section{opacity:0}</style>
+    
+
+    
+    
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css">
+    
+
+    
+    
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.css">
+
+
+    
+    
+    
+    
+
+<link rel="stylesheet" href="/css/back-to-top.css">
+
+
+    
+    
+
+    
+    
+    
+    
+
+    
+    
+<link rel="stylesheet" href="/css/progressbar.css">
+<script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script>
+
+    
+    
+    
+
+    
+    
+    
+
+
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-3-column">
+    <nav class="navbar navbar-main">
+    <div class="container">
+        <div class="navbar-brand is-flex-center">
+            <a class="navbar-item navbar-logo" href="/">
+            
+                <img src="/images/logo.svg" alt="深入理解Grand Central Dispatch:第一部分" height="28">
+            
+            </a>
+        </div>
+        <div class="navbar-menu">
+            
+            <div class="navbar-start">
+                
+                <a class="navbar-item" href="/">Home</a>
+                
+                <a class="navbar-item" href="/archives">Archives</a>
+                
+                <a class="navbar-item" href="/categories">Categories</a>
+                
+                <a class="navbar-item" href="/tags">Tags</a>
+                
+            </div>
+            
+            <div class="navbar-end">
+                
+                
+                
+                <a class="navbar-item search" title="搜索" href="javascript:;">
+                    <i class="fas fa-search"></i>
+                </a>
+                
+            </div>
+        </div>
+    </div>
+</nav>
+    
+    <section class="section">
+        <div class="container">
+            <div class="columns">
+                <div class="column is-8-tablet is-8-desktop is-6-widescreen has-order-2 column-main"><div class="card">
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2019-06-16T12:00:22.000Z">2019-06-16</time>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    1 小时 读完 (大约 8425 个字)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                深入理解Grand Central Dispatch:第一部分
+            
+        </h1>
+        <div class="content">
+            <p>尽管Grand Central Dispatch（简称GCD） 很早就已经使用，但并不是每个人都了解如何充分使用它们。棘手的并发处理和一堆基于C指针的GCD开发文文档，似乎与Objective-C通常表达形式格格不入。本篇教程将分两部分更深一步学习GCD。</p>
+<p>第一部分主要是学习什么是GCD，了解GCD的一些基本功能。第二部分我们将学习GCD提供的更为高级的功能。<br><a id="more"></a> </p>
+<hr>
+<h2 id="什么是GCD"><a href="#什么是GCD" class="headerlink" title="什么是GCD"></a>什么是GCD</h2><p>GCD是libdispatch（是苹果公司支持并发执行的多核处理机器中iOS和OS X系统上的一个类库）的别称。它具有以下特性：</p>
+<ul>
+<li>GCD可以显著提高程序的响应速度，使那些消耗较多资源的计算在后台运行。</li>
+<li>GCD提供了一种比锁和线程更加容易处理的并发模型，并且有效地避免了并发错误。</li>
+<li>GCD可以通过一些原语性的通用模型来提高我们的代码质量，如单例模式。<br>本篇教程假定您已经对Block和GCD有了基本的了解，如果还不是那么清楚，可以阅读下这篇教程<a href="https://www.raywenderlich.com/3049-multithreading-and-grand-central-dispatch-on-ios-for-beginners-tutorial" target="_blank" rel="noopener">Multithreading and Grand Central Dispatch on iOS for Beginners</a></li>
+</ul>
+<hr>
+<h2 id="GCD相关术语"><a href="#GCD相关术语" class="headerlink" title="GCD相关术语"></a>GCD相关术语</h2><p>要想理解GCD，你需要对线程和并发相关概念相当熟悉。所以在深入学习GCD之前我们先重温下关于线程和并发的概念。</p>
+<h3 id="串行和并行"><a href="#串行和并行" class="headerlink" title="串行和并行"></a>串行和并行</h3><p>串行和并行描述了不同任务在执行时的一种相互关系。多任务可以顺序执行，也可以同一时间同时执行。</p>
+<p>尽管串行和并行已经有了广泛的应用，但是在本篇教程我们把一个任务当成Objective-C block或许会更好理解。更多块语法相关知识请查看这篇文章How to Use Blocks in iOS 5 Tutorial。事实上，你可以把GCD当成一种函数指针，但是大多数情况GCD比Block在实际运用中会更加麻烦。</p>
+<h3 id="同步与异步"><a href="#同步与异步" class="headerlink" title="同步与异步"></a>同步与异步</h3><p>在GCD中，同步和异步描述一个函数的完成是依赖于其中使用GCD来完成任务的情况。一个同步执行的函数只有在任务按顺序完成时才会返回。</p>
+<p>对于异步函数，不会等到顺序任务完成之后返回，而是会立即返回。因此，一个异步函数不会阻塞当前进程而回继续执行下一个函数。</p>
+<p>请注意，当你读到同步函数阻塞当前进程时，不要混淆该函数是个“blocking”函数还是blocking（阻塞）操作。前面的blocks是描述这个函数是否阻塞当前线程，而和block语法没有什么关系（这里的block语法是指Objective-C中定义的匿名函数和提交给GCD来执行的一个任务。也就是说block在英语中有两种意思一种是阻塞的意思，另外一个就是Objective-C Block的专有名词称为块语法）。</p>
+<h3 id="临界区"><a href="#临界区" class="headerlink" title="临界区"></a>临界区</h3><p>每个线程中访问临界资源的那段代码称为临界区，也就是说这段代不能被两个线程同时访问。这通常是由于代码共享同一资源引起的，例如并发进程访问同一个变量，可能会使这个数据变为脏数据。</p>
+<h3 id="死锁"><a href="#死锁" class="headerlink" title="死锁"></a>死锁</h3><p>不同线程因相互等待对方完成而进行下一步操作的现象称为死锁。第一个线程无法完成是因为它在等待第二个线程的完成，而第二个线程却在等待第一个线程的完成。</p>
+<h3 id="线程安全"><a href="#线程安全" class="headerlink" title="线程安全"></a>线程安全</h3><p>线程安全是指代码可以被不同线程或者并发任务唤起而不会造成任何问题（如数据损坏，程序崩溃等）。非线程安全是指代码只允许同一时间在同一个上下文执行。例如NSDictionary就是线程安全的，你可以在同一时间的多个线程调用而不会产生任何问题。然而对于NSMutableDictionary却不是线程安全的，在每一时刻只能运行在一个线程中。</p>
+<h3 id="上下文切换"><a href="#上下文切换" class="headerlink" title="上下文切换"></a>上下文切换</h3><p>上下文切换是指在一个单独进程中进行不同线程的切换，存储和恢复之前执行的一种状态的过程。这个过程在多任务处理的程序中是相当普遍的，但是会消耗额外的资源。</p>
+<hr>
+<h2 id="并发与并行"><a href="#并发与并行" class="headerlink" title="并发与并行"></a>并发与并行</h2><p>并发与并行经常会被同时提起，所以有必要对这两个概念进行区分。</p>
+<p>并发代码的不同部分可以被同时执行，这是由系统决定的。多核设备可以在同一时间并行执行多个线程，然而在单核系统上只能执行单个线程，所以为了达到这种效果，只能通过上下文切换来执行另外一个线程，这通常是发生在极短时间内的，所以会给人一种并发的假象，如下图所示：</p>
+<p><img src="/images/Concurrency_vs_Parallelism.png" alt></p>
+<p>尽管你可以通过GCD来实现并发执行，但是会有多少并行却是由GCD来决定的。并行决定着并发，但是并发却不能保证并行。从深层次来看，并发是架构层面的。当你使用GCD来架构代码时，你可以对代码进行并发处理，也可以不那么做。如果想更深入了解这方面的知识请浏览 <a href="http://vimeo.com/49718712" target="_blank" rel="noopener">this excellent talk by Rob Pike.</a></p>
+<hr>
+<h2 id="队列"><a href="#队列" class="headerlink" title="队列"></a>队列</h2><p>GCD提供调度队列（dispatch queues）来处理代码块，这些队列管理着你提供给GCD的任务并按照先进先出（FIFO）的顺序执行。这就保证了添加到队列中的任务是按照顺序执行的。</p>
+<p>所有的调度队列都是线程安全的，所以你可以同时在多个线程执行调度队列。当你明白了调度队列如何保证你的代码线程安全时，你会发现GCD是很好用的。把你的任务提交到队列的关键是选择合适的调度队列和正确的调度功能。</p>
+<p>在这部分教程中，你将了解到两种由GCD支持的队列调度方式，然后通过一些例子了解如何通过GCD将任务添加到调度队列中。</p>
+<h3 id="串行队列"><a href="#串行队列" class="headerlink" title="串行队列"></a>串行队列</h3><p>在串行队列每次只执行一个任务，每个任务只有在前一个任务结束时才能够执行。同时，你无法确定这个块结束和下一个开始之间的时长，如下图所示：</p>
+<p><img src="/images/Serial-Queue.png" alt></p>
+<p>这些任务的执行时间是由GCD来控制的，唯一能够确定的是GCD每次只执行一个任务并且会按照进队顺序执行。由于串行队列中两个任务不能同时运行，所以没有同时访问临界区的风险。这就可以保证这些任务避免资源竞争。所以如果访问临界区的唯一途径就是将任务提交到调度队列中，那么你就可以保证临界区是安全的。</p>
+<h3 id="并发队列"><a href="#并发队列" class="headerlink" title="并发队列"></a>并发队列</h3><p>并发进程能够保证任务按照进队顺序执行，但无法保证按照进队顺序结束的，同时也不知道什么时候执行下一个快或者每个块执行所需时间。因为这些都是由GCD决定的。下图展示了在GCD下四个并发任务执行的情况：</p>
+<p><img src="/images/Concurrent-Queue.png" alt></p>
+<p>上图描述了一个块的开始是由GCD来决定的。如果一个块的执行时间与另外一个重叠，那么GCD会决定是在不同的内核上运行，还是通过上下文切换在同一个可用内核上并发运行。</p>
+<p>为了变得更有趣，GCD提供了至少5种队列类型以供选择。</p>
+<h3 id="队列类型"><a href="#队列类型" class="headerlink" title="队列类型"></a>队列类型</h3><p>首先，系统提供了一个被称为主队列(main queue)的特殊队列，像串行队列一样，每次只执行一个任务。然而，主队列会保证每个任务是在主线程中执行的，主线程是唯一一个允许你执行界面更新的一个线程。这个线程可以给UIViews发送消息或者通知。</p>
+<p>系统同样提供了几个并发队列。这些队列被称作全局调度队列（Global Dispatch Queues）。目前有四个不同级别的全局队列分别为：background, low, default, 和 high。请注意苹果的API也会使用这些队列，所以这些队列中不会仅仅只有你添加的任务。</p>
+<p>最后，你也可以创建属于你自己的串行或者并行队列。这就意味着你至少可以使用五种不同类型的队列：主队列和四种不同类型的全局队列，另外还有更多自定义的队列可供选择。使用GCD的关键是将任务添加到合适的队列调度中来执行。你可以通过下面建议的通常方法来获得最佳的实践经验。</p>
+<hr>
+<h2 id="开始"><a href="#开始" class="headerlink" title="开始"></a>开始</h2><p>这篇教程的目的是通过GCD在不同的线程安全调用所写的代码，我们以一个完成的项目GooglyPuff来开始下面的教程。</p>
+<p>GooglyPuff 是一个未经过优化的，线程不安全的应用程序，这个程序主要通过Core Image API检测人脸,并在眼睛上放个曲棍球。对于所检测的图片既可以从本地图片库选取也可以从网络上下载。</p>
+<p><a href="http://cdn4.raywenderlich.com/wp-content/uploads/2014/01/GooglyPuff_Start_1.zip" target="_blank" rel="noopener">点击这里下载应用源码。</a></p>
+<p>下载源码，打开并运行程序会如下图所示：</p>
+<p><img src="/images/Workflow1.png" alt></p>
+<p>当你点击Le Internet下载图片时，一个UIAlertView弹出框会过早的弹出。在第二部分教程我们将修复这个问题。在这个项目中有四个类：</p>
+<ul>
+<li>PhotoCollectionViewController:这是应用程序启动时的第一个视图控制器，它通过缩略图展示了所有选定的图片。</li>
+<li>PhotoDetailViewController:这个类执行将类似曲棍球的眼睛添加到图像上相关逻辑，并展示到UIScrollView上面。</li>
+<li>Photo:这是一个与NSURL和ALAsset实例相关的图片类簇。这个类提供图像，缩略图和从网络获取图片的下载状态。<br>PhotoManager:这个类管理与Photo相关的所有实例。</li>
+</ul>
+<hr>
+<h2 id="通过dispatch-sync处理后台任务"><a href="#通过dispatch-sync处理后台任务" class="headerlink" title="通过dispatch_sync处理后台任务"></a>通过dispatch_sync处理后台任务</h2><p>回到应用程序，从图片库添加一些图片或者使用Le Internet下载一些图片。</p>
+<p>请注意在PhotoCollectionViewController中点击UICollectionViewCell时需要花费较长时间来实例化一个新的PhotoDetailViewController。尤其在一个速度慢的机器上打开一张较大的图片时会有明显的滞后。但是这很容易加载UIViewController’s viewDidLoad一些冗余的东西。这就导致在页面出现之前会有一个明显的停滞问题。如果可以的话最好在后台完成一些在页面加载时不必要的操作。</p>
+<p>打开PhotoDetailViewController并用下面的代码替换viewDidLoad中的内容</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-keyword">void</span>)viewDidLoad</span><br><span class="line">&#123;</span><br><span class="line">    [<span class="hljs-keyword">super</span> viewDidLoad];</span><br><span class="line">    <span class="hljs-built_in">NSAssert</span>(_image, <span class="hljs-string">@"Image not set; required to use view controller"</span>);</span><br><span class="line">    <span class="hljs-keyword">self</span>.photoImageView.image = _image;</span><br><span class="line">    <span class="hljs-comment">//Resize if neccessary to ensure it's not pixelated</span></span><br><span class="line">    <span class="hljs-keyword">if</span> (_image.size.height &lt;= <span class="hljs-keyword">self</span>.photoImageView.bounds.size.height &amp;&amp;</span><br><span class="line">        _image.size.width &lt;= <span class="hljs-keyword">self</span>.photoImageView.bounds.size.width) &#123;</span><br><span class="line">        [<span class="hljs-keyword">self</span>.photoImageView setContentMode:<span class="hljs-built_in">UIViewContentModeCenter</span>];</span><br><span class="line">    &#125;</span><br><span class="line"><span class="hljs-built_in">dispatch_async</span>(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, <span class="hljs-number">0</span>), ^&#123; <span class="hljs-comment">// 1</span></span><br><span class="line">        <span class="hljs-built_in">UIImage</span> *overlayImage = [<span class="hljs-keyword">self</span> faceOverlayImageFromImage:_image];</span><br><span class="line">        <span class="hljs-built_in">dispatch_async</span>(dispatch_get_main_queue(), ^&#123; <span class="hljs-comment">// 2</span></span><br><span class="line">            [<span class="hljs-keyword">self</span> fadeInNewImage:overlayImage]; <span class="hljs-comment">// 3</span></span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>为什么这样修改：</p>
+<ol>
+<li>首先把主线程中的操作放到全局队列中。因为这是一个dispatch_async()，所以异步提交这个块意味着使用线程来继续执行。这使viewDidLoad在主线程更快返回，使页面加载更顺畅。同时，人脸检测操作会在稍后开始并完成。</li>
+<li>此时，人脸检测完成并生成一张新的图片。既然想把这张新的图片更新到UIImageView，那么就需要在主线程添加一个新的块操作。请记住必须在主线程操作UI Kit classes。</li>
+<li>最后，你需要通过fadeInNewImage:更新界面来渐变显示一张带有曲棍球眼睛的图片。</li>
+</ol>
+<p>编译并运行程序，选择一张图片你会发现视图控制器明显加载更快了，在短时间延迟后添加上了曲棍球眼睛。照片前后不同的显示带来了不错的视觉冲击。还有，如果你尝试加载一张巨大的图片，应用程序不会在加载过程中挂起，这就使应用能够进行更好的进行扩展了。</p>
+<p>如上所述，dispatch_async附加一个块到队列中并立即返回。该任务会由GCD来决定何时执行。使用dispatch_async在后台执行基于网络的或者CPU密集型任务而不会去阻塞主线程。</p>
+<p>以下是在何时及如何使用dispatch_async各种队列类型的快速指南：</p>
+<ul>
+<li>Custom Serial Queue:当需要在后台跟踪不断执行的任务时可以使用此类型队列。因为一次只执行一个任务，所以就避免了资源竞争。需要注意的是，如果你需要获取一个方法的返回值，你必须内嵌另外一个块去返回数据或者考虑使用dispatch_sync。</li>
+<li>Main Queue (Serial):当一个任务在并发线程完成时，通常会选择主线程去更新页面显示，为了做到这一点你需要将一个块嵌到另外一个中。还有，如果在线程中调用了dispatch_async，你需要保证这个异步任务会在主线程完成之后不久去执行。</li>
+<li>Concurrent Queue:通常在后台去执行不需要更新页面的任务时会使用并发线程。</li>
+</ul>
+<h3 id="使用dispatch-after延迟任务执行"><a href="#使用dispatch-after延迟任务执行" class="headerlink" title="使用dispatch_after延迟任务执行"></a>使用dispatch_after延迟任务执行</h3><p>考虑一下你的应用的用户体验。用户在第一次打开程序的时候是否对如何使用这个应用而感到困惑。</p>
+<p>如果在PhotoManager没有找到任何图片，这时给用户一个提醒或许是个好主意。不过，你同时需要注意，如果提醒时间过短的话，用户可能会因为浏览导航界面的其他部分而错过这个提醒。当用户第一次浏览应用时，延迟一秒去显示提醒或许已经足够引起用户注意。</p>
+<p>将下列代码添加到PhotoCollectionViewController.m文件的showOrHideNavPrompt方法中:</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-keyword">void</span>)showOrHideNavPrompt</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-built_in">NSUInteger</span> count = [[PhotoManager sharedManager] photos].count;</span><br><span class="line">    <span class="hljs-keyword">double</span> delayInSeconds = <span class="hljs-number">1.0</span>;</span><br><span class="line">    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * <span class="hljs-built_in">NSEC_PER_SEC</span>)); <span class="hljs-comment">// 1 </span></span><br><span class="line">    dispatch_after(popTime, dispatch_get_main_queue(), ^(<span class="hljs-keyword">void</span>)&#123; <span class="hljs-comment">// 2 </span></span><br><span class="line">        <span class="hljs-keyword">if</span> (!count) &#123;</span><br><span class="line">            [<span class="hljs-keyword">self</span>.navigationItem setPrompt:<span class="hljs-string">@"Add photos with faces to Googlyify them!"</span>];</span><br><span class="line">        &#125; <span class="hljs-keyword">else</span> &#123;</span><br><span class="line">            [<span class="hljs-keyword">self</span>.navigationItem setPrompt:<span class="hljs-literal">nil</span>];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>showOrHideNavPrompt方法在viewDidLoad中执行并会在UICollectionView加载时执行。如下列步骤所示：</p>
+<ol>
+<li>首先声明指定时间延迟的变量。</li>
+<li>然后等待delayInSeconds一段时间后将同步代码块添加到主线程中。</li>
+</ol>
+<p>编译并运行程序，等待一会儿会出现一个用户如何进行操作的提示。dispatch_after就像一个dispatch_async延迟操作。但是仍然无法获取这个块执行的时间并且没办法在dispatch_after返回时取消相应操作。</p>
+<p>思考下在何种情况下使用dispatch_after较好？</p>
+<ul>
+<li>Custom Serial Queue:在自定义队列使用dispatch_after要小心，最好将这个操作在主队列执行。</li>
+<li>Main Queue (Serial):推荐在主队列中使用dispatch_after，Xcode有一个很好的宏定义来使用此方法。</li>
+<li>Concurrent Queue:在并发队列中使用dispatch_after要十分注意，需要始终在主队列中进行相关操作。</li>
+</ul>
+<hr>
+<h2 id="确保单例线程安全"><a href="#确保单例线程安全" class="headerlink" title="确保单例线程安全"></a>确保单例线程安全</h2><p>单例，不管喜欢还是讨厌，在iOS中就是这么流行。一个经常担心的问题是单例是不是线程安全的。单例通常会在同一时间被不同的视图控制器访问。单例的线程安全问题包括初始化，读取和写入数据。</p>
+<p>PhotoManager就是通过单例来实现的——它同样会受到上述问题影响。你将很快看到问题的出现。</p>
+<p>切换到PhotoManager.m类中，找到<code>sharedManager</code>方法，如下面代码所示</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="hljs-keyword">instancetype</span>)sharedManager</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-keyword">static</span> PhotoManager *sharedPhotoManager = <span class="hljs-literal">nil</span>;</span><br><span class="line">    <span class="hljs-keyword">if</span> (!sharedPhotoManager) &#123;</span><br><span class="line">        sharedPhotoManager = [[PhotoManager alloc] init];</span><br><span class="line">        sharedPhotoManager-&gt;_photosArray = [<span class="hljs-built_in">NSMutableArray</span> array];</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="hljs-keyword">return</span> sharedPhotoManager;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段代码看起来相当简单，创建一个单例，并初始化一个NSMutableArray类型的私有变量photosArray。</p>
+<p>然而，if分支不是线程安全的。如果你多次调用这个方法，很有可能A线程在进入if代码块中并在sharedPhotoManager初始化前，此时B线程进入if中并进行了初始化，然后退出。当系统切换到A线线程时，B线程依然会继续生成另外一个单例，然后退出。这时系统就会同时拥有两个单例而不清楚到底使用哪一个。</p>
+<p>为了实现这种效果，使用下面的带面替换PhotoManager.m类中的sharedManager方法：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="hljs-keyword">instancetype</span>)sharedManager</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-keyword">static</span> PhotoManager *sharedPhotoManager = <span class="hljs-literal">nil</span>;</span><br><span class="line">    <span class="hljs-keyword">if</span> (!sharedPhotoManager) &#123;</span><br><span class="line">        [<span class="hljs-built_in">NSThread</span> sleepForTimeInterval:<span class="hljs-number">2</span>];</span><br><span class="line">        sharedPhotoManager = [[PhotoManager alloc] init];</span><br><span class="line">        <span class="hljs-built_in">NSLog</span>(<span class="hljs-string">@"Singleton has memory address at: %@"</span>, sharedPhotoManager);</span><br><span class="line">        [<span class="hljs-built_in">NSThread</span> sleepForTimeInterval:<span class="hljs-number">2</span>];</span><br><span class="line">        sharedPhotoManager-&gt;_photosArray = [<span class="hljs-built_in">NSMutableArray</span> array];</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="hljs-keyword">return</span> sharedPhotoManager;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在上边代码中你需要使用NSThread’s sleepForTimeInterval:方法来强制进行上下文切换。打开AppDelegate.m文件并将下面的代码添加到application:didFinishLaunchingWithOptions:方法中：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-built_in">dispatch_async</span>(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, <span class="hljs-number">0</span>), ^&#123;</span><br><span class="line">    [PhotoManager sharedManager];</span><br><span class="line">&#125;);</span><br><span class="line"><span class="hljs-built_in">dispatch_async</span>(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, <span class="hljs-number">0</span>), ^&#123;</span><br><span class="line">    [PhotoManager sharedManager];</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p>这将创建多个异步并发线程，同时调用单例初始化方法并出现上边所述的竞争关系。编译并运行项目，查看控制窗口输出，你会看到多个不同的单例，如下图所示：</p>
+<p><img src="/images/NSLog-Race-Condition-700x90.png" alt></p>
+<p>上图不同地址的单例是不是已经违背了单例的初衷了呢；上边的输出显示本应该只执行一次的临界区域被访问了多次。我们强制了这种情况的发生，但是你可以想象一下这种情况在现实中是如何发生的。</p>
+<blockquote>
+<p>注意:上述NSLogs是在特定条件下展示的，基于其他系统时间是不可控的，所以当发生线程问题时是很难追踪并重现该问题的。</p>
+</blockquote>
+<p>为了避免这种情况的发生，初始化代码必须只执行一次并且阻止其他情况下的初始化行为，所以if条件的修改是关键。这正是dispatch_once所应该做的。使用dispatch_once来代替if语句的初始化如下面代码所示：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="hljs-keyword">instancetype</span>)sharedManager</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-keyword">static</span> PhotoManager *sharedPhotoManager = <span class="hljs-literal">nil</span>;</span><br><span class="line">    <span class="hljs-keyword">static</span> <span class="hljs-built_in">dispatch_once_t</span> onceToken;</span><br><span class="line">    <span class="hljs-built_in">dispatch_once</span>(&amp;onceToken, ^&#123;</span><br><span class="line">        [<span class="hljs-built_in">NSThread</span> sleepForTimeInterval:<span class="hljs-number">2</span>];</span><br><span class="line">        sharedPhotoManager = [[PhotoManager alloc] init];</span><br><span class="line">        <span class="hljs-built_in">NSLog</span>(<span class="hljs-string">@"Singleton has memory address at: %@"</span>, sharedPhotoManager);</span><br><span class="line">        [<span class="hljs-built_in">NSThread</span> sleepForTimeInterval:<span class="hljs-number">2</span>];</span><br><span class="line">        sharedPhotoManager-&gt;_photosArray = [<span class="hljs-built_in">NSMutableArray</span> array];</span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="hljs-keyword">return</span> sharedPhotoManager;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>编译并运行程序，查看输出窗口你会发现只有一个初始化地址的单例，这正是我们所想要的单例。</p>
+<p>现在你明白了防止资源竞争的重要性了，在AppDelegate.m去掉dispatch_async代码，并用下边的代码初始化PhotoManager‘s单例：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="hljs-keyword">instancetype</span>)sharedManager</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-keyword">static</span> PhotoManager *sharedPhotoManager = <span class="hljs-literal">nil</span>;</span><br><span class="line">    <span class="hljs-keyword">static</span> <span class="hljs-built_in">dispatch_once_t</span> onceToken;</span><br><span class="line">    <span class="hljs-built_in">dispatch_once</span>(&amp;onceToken, ^&#123;</span><br><span class="line">        sharedPhotoManager = [[PhotoManager alloc] init];</span><br><span class="line">        sharedPhotoManager-&gt;_photosArray = [<span class="hljs-built_in">NSMutableArray</span> array];</span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="hljs-keyword">return</span> sharedPhotoManager;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>dispatch_once()</code>以一种线程安全的方式执行且只执行一次代码块。当不同的线程尝试访问这个临界区时，此时临界区中的线程会阻止其他线程访问，并且直到完成初始化操作之后才会允许其他线程操作。</p>
+<p><img src="/images/Highlander_dispatch_once-480x274.png" alt></p>
+<p>值得注意的是我们仅仅让共享的实例线程安全而已，而并没有使整个类线程安全。在这个类中肯定还有其他的临界区，例如同步访问数据的地方，这些地方也应该是线程安全的。接下来我们将学习这一部分。</p>
+<hr>
+<h2 id="处理读与写的问题"><a href="#处理读与写的问题" class="headerlink" title="处理读与写的问题"></a>处理读与写的问题</h2><p>线程安全不仅仅是处理单例时的问题。如果在单例属性中有个可变的对象，那么同样也需要考虑这个对象的线程安全问题。</p>
+<p>系统自带的类库中的类是否会有线程安全问题，答案是可能会有。苹果文档中列出了很多非线程安全的基础类，例如上面提到的NSMutableArray类型。</p>
+<p>尽管很多线程可以同时读取NSMutableArray而不会产生什么问题，但是如果一个线程读，一个线程写入可能就会造成线程的不安全。你当前的单例并没有预防这种情况的发生。打开PhotoManager.m，查看addPhoto:方法：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-keyword">void</span>)addPhoto:(Photo *)photo</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-keyword">if</span> (photo) &#123;</span><br><span class="line">        [_photosArray addObject:photo];</span><br><span class="line">        <span class="hljs-built_in">dispatch_async</span>(dispatch_get_main_queue(), ^&#123;</span><br><span class="line">            [<span class="hljs-keyword">self</span> postContentAddedNotification];</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这是一个写操作，改变了私有数组的值。现在看下photos方法：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-built_in">NSArray</span> *)photos</span><br><span class="line">&#123;</span><br><span class="line">  <span class="hljs-keyword">return</span> [<span class="hljs-built_in">NSArray</span> arrayWithArray:_photosArray];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这是一个从可变数组读取数据的方法。这个方法为调用者生成一个不可变的副本以防止对可变数组不恰当的访问。但是该方式并没有阻止一个线程在addPhoto:写入，另外一个并发线程从photos读取数据。这是一个经典的读者写者问题Readers-Writers Problem。GCD提供了一种优雅的解决方案—使用dispatch barriers来创建读写索Readers-writer lock。</p>
+<p>Dispatch barriers是把一组并发队列操作的函数当做一个串行的阻塞（serial-style bottleneck）。使用GCD的阻塞API是为了确保提交到指定队列的代码块是在特定时间执行的唯一一个任务。这意味所有提交到队列中的任务必须在当前代码块执行完毕时才能够调用。</p>
+<p>当轮到下一个代码块执行时，阻塞队列会执行该块并确保队列此时没有执行其他的任务。一旦完成，队列就会返回到默认设置。GCD提供了同步和异步阻塞功能。下图展示了阻塞功能在异步操作时的效果：</p>
+<p><img src="/images/Dispatch-Barrier-480x272.png" alt></p>
+<p>值得注意的是在正常情况下队列操作像一个并发队列，当阻塞任务执行时，此时队列更像个串行队列。当前仅仅只有阻塞任务能够执行。当阻塞任务完成时，队列又回到了正常的并发队列中。阻塞功能在什么场合下使用更为恰当：</p>
+<ul>
+<li>Custom Serial Queue:串行队列下使用并不是一个好的选择，串行操作本身就是一次只能执行一个任务，所以阻塞操作在这里没有起什么作用。</li>
+<li>Global Concurrent Queue:在全局并发队列中使用不是个好方法，因为系统操作也可能会使用到这个队列然而你并不希望阻塞系统相关的操作。</li>
+<li>Custom Concurrent Queue:对于原子性或者临界区的操作，任何需要线程安全的实例或者操作，阻塞线程都是一个好的选择。<br>既然作为唯一比较好的选择是自定义的并发队列，那么我们就需要自己创建一个处理阻塞的函数并区分读和写的功能。并发队列允许同时进行多个读操作。打卡PhotoManager.m，把下面的私有函数添加到实现类中：</li>
+</ul>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="hljs-class"><span class="hljs-keyword">@interface</span> <span class="hljs-title">PhotoManager</span> ()</span></span><br><span class="line"><span class="hljs-keyword">@property</span> (<span class="hljs-keyword">nonatomic</span>,<span class="hljs-keyword">strong</span>,<span class="hljs-keyword">readonly</span>) <span class="hljs-built_in">NSMutableArray</span> *photosArray;</span><br><span class="line"><span class="hljs-keyword">@property</span> (<span class="hljs-keyword">nonatomic</span>, <span class="hljs-keyword">strong</span>) <span class="hljs-built_in">dispatch_queue_t</span> concurrentPhotoQueue; <span class="hljs-comment">///&lt; Add this</span></span><br><span class="line"><span class="hljs-keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>找到addPhoto函数用下面的代码来实现：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-keyword">void</span>)addPhoto:(Photo *)photo</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-keyword">if</span> (photo) &#123; <span class="hljs-comment">// 1</span></span><br><span class="line">        dispatch_barrier_async(<span class="hljs-keyword">self</span>.concurrentPhotoQueue, ^&#123; <span class="hljs-comment">// 2 </span></span><br><span class="line">            [_photosArray addObject:photo]; <span class="hljs-comment">// 3</span></span><br><span class="line">            <span class="hljs-built_in">dispatch_async</span>(dispatch_get_main_queue(), ^&#123; <span class="hljs-comment">// 4</span></span><br><span class="line">                [<span class="hljs-keyword">self</span> postContentAddedNotification];</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>下面步骤描述了该函数是如何工作的：</p>
+<ol>
+<li>在执行其他操作之前先检查下是否有可用的图片资源。</li>
+<li>添加写操作到自定义的队列中，当临界区在执行一个任务时，这个任务会是该队列中唯一一个在执行的。</li>
+<li>这段代码是将对象添加到数组中。因为这是一个阻塞块，所以该块永远不会在concurrentPhotoQueue队列中与其他块同时运行。</li>
+<li>最后当你添加完图片后发送了一个通知，因为要更新UI界面，所以该通知需要在主线程进行操作。因此这里就在主线程中异步调取了通知操作。</li>
+</ol>
+<p>这只是个写操作，你同时需要实现photos读操作和concurrentPhotoQueue的实例化。为了确保同写操作的相关任务的线程安全，你需要在concurrentPhotoQueue队列中执行读操作。并从函数中返回且不能异步调度队列，因为写操作未必会在进行读操作前返回。</p>
+<p>在这种情况下dispatch_sync会是一个很好的选择。dispatch_sync()同步提交操作并且会等当前任务完成之后再返回。使用dispatch_sync来跟踪阻塞调度任务，或者在你需要等待相关任务操作完成之后再进行后续操作，此时可以使用dispatch_sync来处理数据。如果是第二种情况，有时你会在dispatch_sync外看到一个__block变量，这个变量是用来处理dispatch_sync函数返回的数据。</p>
+<p>值得注意的是，如果你针对当前一个正在运行的串行队列调用dispatch_sync，这将会造成死锁。因为这个操作会等待当前块执行完毕，但当前正在执行的任务又在等待dispatch_sync完成。这就迫使你需要考虑dispatch_sync是从哪个队列中调取的，同时应该放到哪个队列里执行。下面是dispatch_sync使用的环境：</p>
+<ul>
+<li>Custom Serial Queue:在这种情况下调用要十分小心，如果你针对一个正在运行的队列调用dispatch_sync，这一定会造成死锁的。</li>
+<li>Main Queue (Serial):和上边的同样的理由，这种情况也可能会造成潜在的死锁现象。</li>
+<li>Concurrent Queue:通过阻塞调度同步执行任务或者等待相关任务完成之后执行后续任务，在这种情况下调用dispatch_sync是完全可以的。</li>
+</ul>
+<p>打开PhotoManager.m用下面的代码替换photos方法：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-built_in">NSArray</span> *)photos</span><br><span class="line">&#123;</span><br><span class="line">    __block <span class="hljs-built_in">NSArray</span> *array; <span class="hljs-comment">// 1</span></span><br><span class="line">    <span class="hljs-built_in">dispatch_sync</span>(<span class="hljs-keyword">self</span>.concurrentPhotoQueue, ^&#123; <span class="hljs-comment">// 2</span></span><br><span class="line">        array = [<span class="hljs-built_in">NSArray</span> arrayWithArray:_photosArray]; <span class="hljs-comment">// 3</span></span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="hljs-keyword">return</span> array;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据序号查看上面代码的相关解释：</p>
+<ol>
+<li>__block关键字表示允许对象在块中是可变的，如果没有这个关键字array数组变量在块中是只读属性，根本无法通过编译。</li>
+<li>在concurrentPhotoQueue队列中同步调度读取数据。</li>
+<li>将图片存储到array中并返回数据。</li>
+</ol>
+<p>最后你需要初始化concurrentPhotoQueue队列属性，如下面代码所示：</p>
+<figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="hljs-keyword">instancetype</span>)sharedManager</span><br><span class="line">&#123;</span><br><span class="line">    <span class="hljs-keyword">static</span> PhotoManager *sharedPhotoManager = <span class="hljs-literal">nil</span>;</span><br><span class="line">    <span class="hljs-keyword">static</span> <span class="hljs-built_in">dispatch_once_t</span> onceToken;</span><br><span class="line">    <span class="hljs-built_in">dispatch_once</span>(&amp;onceToken, ^&#123;</span><br><span class="line">        sharedPhotoManager = [[PhotoManager alloc] init];</span><br><span class="line">        sharedPhotoManager-&gt;_photosArray = [<span class="hljs-built_in">NSMutableArray</span> array];</span><br><span class="line">        <span class="hljs-comment">// ADD THIS:</span></span><br><span class="line">        sharedPhotoManager-&gt;_concurrentPhotoQueue = dispatch_queue_create(<span class="hljs-string">"com.selander.GooglyPuff.photoQueue"</span>,</span><br><span class="line">                                                    DISPATCH_QUEUE_CONCURRENT);</span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="hljs-keyword">return</span> sharedPhotoManager;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>concurrentPhotoQueue的初始化使用的是dispatch_queue_create创建的并发队列。第一个参数是域名地址的方向命名，确保命名描述的清晰性，因为这在调试中会非常有用。第二个参数是指定你的队列是并发的还是串行的。</p>
+<blockquote>
+<p>注意：当在网络上搜索例子时，你经常会看到使用dispatch_queue_create方法创建对队列时第二个参数往往传递的是0或者NULL，这是创建串行队列的一种过时方法，通常是传递更为清晰具体的参数。</p>
+</blockquote>
+<p>Congratulations—PhotoManager单例现在线程安全了，不管你什么时候或者什么地方读取或者写入图片，你完全可以相信这种操作是十分安全的。</p>
+<hr>
+<h2 id="回顾队列相关知识点"><a href="#回顾队列相关知识点" class="headerlink" title="回顾队列相关知识点"></a>回顾队列相关知识点</h2><p>并不是100%确定掌握了GCD的要领？为了确保你已经掌握了基本的要点，请使用GCD函数创建个简单的例子，然后根据断点和NSLog输出，来确保你的确明白了函数在执行过程中发生了什么。</p>
+<p>这里提供了两个GIF图片以帮助你巩固对于dispatch_async和dispatch_sync的理解。每个GIF左边显示了代码执行的步骤，右边显示了队列当前的状态。</p>
+<h3 id="dispatch-sync知识点再现"><a href="#dispatch-sync知识点再现" class="headerlink" title="dispatch_sync知识点再现"></a>dispatch_sync知识点再现</h3><figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-keyword">void</span>)viewDidLoad</span><br><span class="line">&#123;</span><br><span class="line">  [<span class="hljs-keyword">super</span> viewDidLoad];</span><br><span class="line"><span class="hljs-built_in">dispatch_sync</span>(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, <span class="hljs-number">0</span>), ^&#123;</span><br><span class="line">      <span class="hljs-built_in">NSLog</span>(<span class="hljs-string">@"First Log"</span>);</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="hljs-built_in">NSLog</span>(<span class="hljs-string">@"Second Log"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/dispatch_sync_in_action.gif" alt></p>
+<ol>
+<li>主队列中是按顺序执行的任务，将要执行的任务是包含viewDidLoad的UIViewController的实例。</li>
+<li>viewDidLoad在主队列中执行。</li>
+<li>主线程进入到了viewDidLoad中而且即将执行dispatch_sync。</li>
+<li>dispatch_sync添加到了全局队列中并于稍后执行，主线程中的任务停止执行直到dispatch_sync完成操作。同时，全局队列并行处理任务，出现顺序将按照先进先出（FIFO）的顺序，但是执行时会按照并发处理。</li>
+<li>全局队列处理在dispatch_sync之前添加到队列中的任务。</li>
+<li>最后轮到执行dispatch_sync块。</li>
+<li>当dispatch_sync执行完毕，主线程就可以继续执行了。</li>
+<li>viewDidLoad执行完毕后，主线程将继续操作后续的任务。</li>
+</ol>
+<p>dispatch_sync添加一个任务到队列中并且直到任务执行完毕才会返回。dispatch_async除了不需要等待任务执行完毕才能够执行继续后续任务外，其他流程和上面类似。</p>
+<h3 id="dispatch-async知识点再现"><a href="#dispatch-async知识点再现" class="headerlink" title="dispatch_async知识点再现"></a>dispatch_async知识点再现</h3><figure class="highlight objc hljs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="hljs-keyword">void</span>)viewDidLoad</span><br><span class="line">&#123;</span><br><span class="line">  [<span class="hljs-keyword">super</span> viewDidLoad]; <span class="hljs-built_in">dispatch_async</span>(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, <span class="hljs-number">0</span>), ^&#123;</span><br><span class="line">      <span class="hljs-built_in">NSLog</span>(<span class="hljs-string">@"First Log"</span>);</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="hljs-built_in">NSLog</span>(<span class="hljs-string">@"Second Log"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/dispatch_async_in_action.gif" alt></p>
+<ol>
+<li>主线程按顺序执行，下一个将要执行的是含有viewDidLoad方法的UIViewController的一个实例。</li>
+<li>viewDidLoad在主线程中执行。</li>
+<li>现在主线程在viewDidLoad中执行并且稍后执行dispatch_async方法块。</li>
+<li>dispatch_async方法块添加到了全局队列中并且稍后会被执行。</li>
+<li>viewDidLoad中的断点会继续移动，dispatch_async添加到全局队列中后主队列依然会继续后续任务的执行。同时全局队列也会并发处理相关任务，记住各个块会以先进先出的顺序出现在全局队列中，但是会并发的执行这些任务。</li>
+<li>添加到dispatch_async代码现在开始执行。</li>
+<li>dispatch_async执行完毕并且打印相关信息。</li>
+</ol>
+<p>在上面这个例子中，第二个NSLog信息出现在第一个NSLog之后。这是由硬件决定在那一刻到底谁先执行，而你是无法确定的，第一个NSLog可能在某些调用中会第一个执行并打印出信息。</p>
+<hr>
+<h2 id="下一部分我们将会学习什么呢"><a href="#下一部分我们将会学习什么呢" class="headerlink" title="下一部分我们将会学习什么呢"></a>下一部分我们将会学习什么呢</h2><p>在这部分教程中，我们学习到了如何使代码线程安全，并且在执行CPU密集型任务时保持主线程的响应能力。你可以下载这个改进后的GooglyPuff Project项目。在第二部分教程中我们将继续改进这个项目。</p>
+<p>如果你正在准备优化你的APP，强烈建议使用Instruments中的Time Profile模版分析你的程序。使用此工具已超出本篇教程的范围，但是可以查看这篇文章How to Use Instruments学习下如何使用。同时确保是使用真机进行测试的，因为在模拟器上分析的数据是相当不准确的。</p>
+<p>接下来的教程我们将更深入的了解GCD相关的API并做更多更有趣的事。</p>
+<blockquote>
+<p>本篇教程翻译自：Grand Central Dispatch In-Depth: Part ½</p>
+</blockquote>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/GCD/">GCD</a>, <a class="has-link-grey -link" href="/tags/多线程/">多线程</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        <div class="level-start">
+            <a class="level level-item has-link-grey  article-nav-prev" href="/2019/06/17/深入理解GCD-第二部分/">
+                <i class="level-item fas fa-chevron-left"></i>
+                <span class="level-item">深入理解Grand Central Dispatch:第二部分</span>
+            </a>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+</div>
+                
+
+
+
+
+<div class="column is-4-tablet is-4-desktop is-3-widescreen  has-order-1 column-left ">
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <nav class="level">
+            <div class="level-item has-text-centered">
+                <div>
+                    
+                        <img class="image is-128x128 has-mb-6" src="/images/avatar.png" alt="Jupiter">
+                    
+                    
+                    <p class="is-size-4 is-block">
+                        Jupiter
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-block">
+                        Keep Learning...
+                    </p>
+                    
+                    
+                </div>
+            </div>
+        </nav>
+        <nav class="level is-mobile">
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        文章
+                    </p>
+                    <p class="title has-text-weight-normal">
+                        2
+                    </p>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        分类
+                    </p>
+                    <p class="title has-text-weight-normal">
+                        0
+                    </p>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        标签
+                    </p>
+                    <p class="title has-text-weight-normal">
+                        2
+                    </p>
+                </div>
+            </div>
+        </nav>
+        <div class="level">
+            <a class="level-item button is-link is-rounded" href="https://github.com/ThatMoment" target="_blank">
+                关注我</a>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            
+            <a class="level-item button is-white is-marginless" target="_blank" title="Github" href="https://github.com/ThatMoment">
+                
+                <i class="fab fa-github"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" title="Facebook" href="https://facebook.com">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" title="Twitter" href="https://twitter.com">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" title="Dribbble" href="https://dribbble.com">
+                
+                <i class="fab fa-dribbble"></i>
+                
+            </a>
+            
+        </div>
+        
+    </div>
+</div>
+    
+        
+    
+        
+
+<div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            链接
+        </h3>
+        <ul class="menu-list">
+        
+            <li>
+                <a class="level is-mobile" href="https://hexo.io" target="_blank">
+                    <span class="level-left">
+                        <span class="level-item">Hexo</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">hexo.io</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://github.com/ppoffice" target="_blank">
+                    <span class="level-left">
+                        <span class="level-item">PPOffice</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">github.com</span>
+                    </span>
+                </a>
+            </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+
+
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                分类
+            </h3>
+            <ul class="menu-list">
+            
+            </ul>
+        </div>
+    </div>
+</div>
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            标签云
+        </h3>
+        <a href="/tags/GCD/" style="font-size: 10px;">GCD</a> <a href="/tags/多线程/" style="font-size: 10px;">多线程</a>
+    </div>
+</div>
+
+    
+    
+        <div class="column-right-shadow is-hidden-widescreen ">
+        
+            
+<div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            最新文章
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2019/06/17/深入理解GCD-第二部分/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="深入理解Grand Central Dispatch:第二部分">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-17T10:01:09.000Z">2019-06-17</time></div>
+                    <a href="/2019/06/17/深入理解GCD-第二部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第二部分</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2019/06/16/深入理解GCD-第一部分/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="深入理解Grand Central Dispatch:第一部分">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-16T12:00:22.000Z">2019-06-16</time></div>
+                    <a href="/2019/06/16/深入理解GCD-第一部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第一部分</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+
+        
+            <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            归档
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/06/">
+                <span class="level-start">
+                    <span class="level-item">六月 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">2</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+        
+            <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                标签
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/GCD/">
+                        <span class="tag">GCD</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/多线程/">
+                        <span class="tag">多线程</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+        
+        </div>
+    
+</div>
+
+                
+
+
+
+
+<div class="column is-4-tablet is-4-desktop is-3-widescreen is-hidden-touch is-hidden-desktop-only has-order-3 column-right ">
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            最新文章
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2019/06/17/深入理解GCD-第二部分/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="深入理解Grand Central Dispatch:第二部分">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-17T10:01:09.000Z">2019-06-17</time></div>
+                    <a href="/2019/06/17/深入理解GCD-第二部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第二部分</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2019/06/16/深入理解GCD-第一部分/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="深入理解Grand Central Dispatch:第一部分">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-16T12:00:22.000Z">2019-06-16</time></div>
+                    <a href="/2019/06/16/深入理解GCD-第一部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第一部分</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            归档
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/06/">
+                <span class="level-start">
+                    <span class="level-item">六月 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">2</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                标签
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/GCD/">
+                        <span class="tag">GCD</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/多线程/">
+                        <span class="tag">多线程</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+</div>
+
+            </div>
+        </div>
+    </section>
+    <footer class="footer">
+    <div class="container">
+        <div class="level">
+            <div class="level-start has-text-centered-mobile">
+                <a class="footer-logo is-block has-mb-6" href="/">
+                
+                    <img src="/images/logo.svg" alt="深入理解Grand Central Dispatch:第一部分" height="28">
+                
+                </a>
+                <p class="is-size-7">
+                &copy; 2019 Moment&nbsp;
+                Powered by <a href="https://hexo.io/" target="_blank">Hexo</a> & <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank">Icarus</a>
+                
+                </p>
+            </div>
+            <div class="level-end">
+            
+            </div>
+        </div>
+    </div>
+</footer>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script>
+<script>moment.locale("zh-CN");</script>
+
+
+    
+    
+    
+    <script src="/js/animation.js"></script>
+    
+
+    
+    
+    
+    <script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script>
+    <script src="/js/gallery.js" defer></script>
+    
+
+    
+    
+
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update
+            my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.js" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        });
+    });
+</script>
+
+
+    
+    
+<script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.5/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    MathJax.Hub.Config({
+        'HTML-CSS': {
+            matchFontHeight: false
+        },
+        SVG: {
+            matchFontHeight: false
+        },
+        CommonHTML: {
+            matchFontHeight: false
+        },
+        tex2jax: {
+            inlineMath: [
+                ['$','$'],
+                ['\\(','\\)']
+            ]
+        }
+    });
+});
+</script>
+
+    
+    
+
+<a id="back-to-top" title="回到顶端" href="javascript:;">
+    <i class="fas fa-chevron-up"></i>
+</a>
+<script src="/js/back-to-top.js" defer></script>
+
+
+    
+    
+
+    
+    
+    
+    
+
+    
+    
+    
+    
+    
+    <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script>
+    <script src="/js/clipboard.js" defer></script>
+    
+
+    
+    
+    
+
+
+<script src="/js/main.js" defer></script>
+
+    
+    <div class="searchbox ins-search">
+    <div class="searchbox-container ins-search-container">
+        <div class="searchbox-input-wrapper">
+            <input type="text" class="searchbox-input ins-search-input" placeholder="想要查找什么...">
+            <span class="searchbox-close ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="searchbox-result-wrapper ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function (window) {
+        var INSIGHT_CONFIG = {
+            TRANSLATION: {
+                POSTS: '文章',
+                PAGES: '页面',
+                CATEGORIES: '分类',
+                TAGS: '标签',
+                UNTITLED: '(无标题)',
+            },
+            CONTENT_URL: '/content.json',
+        };
+        window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+    })(window);
+</script>
+<script src="/js/insight.js" defer></script>
+<link rel="stylesheet" href="/css/search.css">
+<link rel="stylesheet" href="/css/insight.css">
+    
+</body>
+</html>
