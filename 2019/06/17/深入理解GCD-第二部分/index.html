@@ -8,6 +8,7 @@
 
 
     <meta name="description" content="欢迎来到第二部分教程，本篇教程我们将更加深入的理解GCD。 在前一篇教程我们学习了并发，线程和GCD是如何运行的。我们使用dispatch_once初始化PhotoManager单例来确保线程安全，通过使用dispatch_barrier_async和dispatch_sync来确保读写Photos时线程安全。除此之外，我们使用dispatch_after控制提示时间，增强了应用的用户体验。同时通">
+<meta name="keywords" content="GCD,多线程">
 <meta property="og:type" content="article">
 <meta property="og:title" content="深入理解Grand Central Dispatch:第二部分">
 <meta property="og:url" content="http://yoursite.com/2019/06/17/深入理解GCD-第二部分/index.html">
@@ -15,7 +16,7 @@
 <meta property="og:description" content="欢迎来到第二部分教程，本篇教程我们将更加深入的理解GCD。 在前一篇教程我们学习了并发，线程和GCD是如何运行的。我们使用dispatch_once初始化PhotoManager单例来确保线程安全，通过使用dispatch_barrier_async和dispatch_sync来确保读写Photos时线程安全。除此之外，我们使用dispatch_after控制提示时间，增强了应用的用户体验。同时通">
 <meta property="og:locale" content="zh-CN">
 <meta property="og:image" content="http://yoursite.com/images/og_image.png">
-<meta property="og:updated_time" content="2019-06-19T08:12:47.630Z">
+<meta property="og:updated_time" content="2019-06-19T10:10:53.055Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="深入理解Grand Central Dispatch:第二部分">
 <meta name="twitter:description" content="欢迎来到第二部分教程，本篇教程我们将更加深入的理解GCD。 在前一篇教程我们学习了并发，线程和GCD是如何运行的。我们使用dispatch_once初始化PhotoManager单例来确保线程安全，通过使用dispatch_barrier_async和dispatch_sync来确保读写Photos时线程安全。除此之外，我们使用dispatch_after控制提示时间，增强了应用的用户体验。同时通">
@@ -132,6 +133,10 @@
         <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
             <div class="level-left">
                 <time class="level-item has-text-grey" datetime="2019-06-17T10:01:09.000Z">2019-06-17</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/开发/">开发</a>&nbsp;/&nbsp;<a class="has-link-grey -link" href="/categories/开发/iOS/">iOS</a>
+                </div>
                 
                 
                 <span class="level-item has-text-grey">
@@ -296,6 +301,15 @@
 
         </div>
         
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/GCD/">GCD</a>, <a class="has-link-grey -link" href="/tags/多线程/">多线程</a>
+                </div>
+            </div>
+        </div>
+        
         
         
     </div>
@@ -368,7 +382,7 @@
                         分类
                     </p>
                     <p class="title has-text-weight-normal">
-                        0
+                        2
                     </p>
                 </div>
             </div>
@@ -469,7 +483,23 @@
                 分类
             </h3>
             <ul class="menu-list">
-            
+            <li>
+        <a class="level is-marginless" href="/categories/开发/">
+            <span class="level-start">
+                <span class="level-item">开发</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">2</span>
+            </span>
+        </a><ul><li>
+        <a class="level is-marginless" href="/categories/开发/iOS/">
+            <span class="level-start">
+                <span class="level-item">iOS</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">2</span>
+            </span>
+        </a></li></ul></li>
             </ul>
         </div>
     </div>
@@ -509,7 +539,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-17T10:01:09.000Z">2019-06-17</time></div>
                     <a href="/2019/06/17/深入理解GCD-第二部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第二部分</a>
                     <p class="is-size-7 is-uppercase">
-                        
+                        <a class="has-link-grey -link" href="/categories/开发/">开发</a> / <a class="has-link-grey -link" href="/categories/开发/iOS/">iOS</a>
                     </p>
                 </div>
             </div>
@@ -528,7 +558,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-16T12:00:22.000Z">2019-06-16</time></div>
                     <a href="/2019/06/16/深入理解GCD-第一部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第一部分</a>
                     <p class="is-size-7 is-uppercase">
-                        
+                        <a class="has-link-grey -link" href="/categories/开发/">开发</a> / <a class="has-link-grey -link" href="/categories/开发/iOS/">iOS</a>
                     </p>
                 </div>
             </div>
@@ -573,14 +603,14 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/GCD/">
                         <span class="tag">GCD</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
                 <div class="control">
                     <a class="tags has-addons" href="/tags/多线程/">
                         <span class="tag">多线程</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
@@ -620,7 +650,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-17T10:01:09.000Z">2019-06-17</time></div>
                     <a href="/2019/06/17/深入理解GCD-第二部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第二部分</a>
                     <p class="is-size-7 is-uppercase">
-                        
+                        <a class="has-link-grey -link" href="/categories/开发/">开发</a> / <a class="has-link-grey -link" href="/categories/开发/iOS/">iOS</a>
                     </p>
                 </div>
             </div>
@@ -639,7 +669,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-06-16T12:00:22.000Z">2019-06-16</time></div>
                     <a href="/2019/06/16/深入理解GCD-第一部分/" class="has-link-black-ter is-size-6">深入理解Grand Central Dispatch:第一部分</a>
                     <p class="is-size-7 is-uppercase">
-                        
+                        <a class="has-link-grey -link" href="/categories/开发/">开发</a> / <a class="has-link-grey -link" href="/categories/开发/iOS/">iOS</a>
                     </p>
                 </div>
             </div>
@@ -684,14 +714,14 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/GCD/">
                         <span class="tag">GCD</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
                 <div class="control">
                     <a class="tags has-addons" href="/tags/多线程/">
                         <span class="tag">多线程</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
